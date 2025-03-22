@@ -11,10 +11,14 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=insider_messages
-      - WEBHOOK_URL=https://webhook.site/9e144b64-cc86-48de-a843-3e30ebfd4ee0
+      - WEBHOOK_URL=https://webhook.site/051715ec-86d3-4526-b22e-07bef7da0956
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy  
 
   postgres:
     image: postgres:15
@@ -32,6 +36,19 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
+  redis_data: 

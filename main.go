@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
+	"github.com/go-redis/redis/v8"
 	_ "github.com/ricirt/webhook-automation/docs"
 	"github.com/ricirt/webhook-automation/internal/config"
 	"github.com/ricirt/webhook-automation/internal/handler"
@@ -54,11 +56,22 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	// Initialize Redis
+	rdb := redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort),
+	})
+
+	// Test Redis connection
+	ctx := context.Background()
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+
 	// Initialize repositories
 	messageRepo := repository.NewMessageRepository(db)
 
 	// Initialize services
-	messageService := service.NewMessageService(messageRepo, cfg)
+	messageService := service.NewMessageService(messageRepo, cfg, rdb)
 
 	// Initialize handlers
 	messageHandler := handler.NewMessageHandler(messageService)

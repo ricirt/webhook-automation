@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"github.com/ricirt/webhook-automation/internal/config"
 	"github.com/ricirt/webhook-automation/internal/model"
 	"github.com/ricirt/webhook-automation/internal/repository"
+
+	"github.com/go-redis/redis/v8"
 )
 
 type WebhookResponse struct {
@@ -21,14 +24,16 @@ type WebhookResponse struct {
 type MessageService struct {
 	repo        *repository.MessageRepository
 	config      *config.Config
+	redis       *redis.Client
 	isRunning   bool
 	stopChannel chan struct{}
 }
 
-func NewMessageService(repo *repository.MessageRepository, config *config.Config) *MessageService {
+func NewMessageService(repo *repository.MessageRepository, config *config.Config, redis *redis.Client) *MessageService {
 	return &MessageService{
 		repo:        repo,
 		config:      config,
+		redis:       redis,
 		isRunning:   false,
 		stopChannel: make(chan struct{}),
 	}
@@ -55,8 +60,9 @@ func (s *MessageService) StopSending() error {
 }
 
 func (s *MessageService) sendMessagesLoop() {
+
 	if err := s.sendMessages(); err != nil {
-		fmt.Printf("Error in initial message sending: %v\n", err)
+		fmt.Printf("İlk mesaj gönderiminde hata: %v\n", err)
 	}
 
 	ticker := time.NewTicker(2 * time.Minute)
@@ -68,7 +74,7 @@ func (s *MessageService) sendMessagesLoop() {
 			return
 		case <-ticker.C:
 			if err := s.sendMessages(); err != nil {
-				fmt.Printf("Error sending messages: %v\n", err)
+				fmt.Printf("Mesaj gönderiminde hata: %v\n", err)
 			}
 		}
 	}
@@ -80,7 +86,16 @@ func (s *MessageService) sendMessages() error {
 		return fmt.Errorf("failed to get unsent messages: %v", err)
 	}
 
-	for _, message := range messages {
+	if len(messages) == 0 {
+		fmt.Println("Gönderilecek yeni mesaj bulunamadı")
+		return nil
+	}
+
+	fmt.Printf("İşlenecek mesaj sayısı: %d\n", len(messages))
+
+	for i := 0; i < len(messages) && i < 2; i++ {
+		message := messages[i]
+
 		if err := s.sendMessage(&message); err != nil {
 			continue
 		}
@@ -91,6 +106,10 @@ func (s *MessageService) sendMessages() error {
 		if err := s.repo.UpdateMessage(&message); err != nil {
 			continue
 		}
+
+		if err := s.cacheMessageDetails(message.ID, message.MessageID, message.SentAt); err != nil {
+		}
+
 	}
 
 	return nil
@@ -142,4 +161,24 @@ func (s *MessageService) sendMessage(message *model.Message) error {
 
 func (s *MessageService) GetSentMessages() ([]model.Message, error) {
 	return s.repo.GetSentMessages()
+}
+
+func (s *MessageService) cacheMessageDetails(messageID uint, messageResponseID string, sentAt time.Time) error {
+	ctx := context.Background()
+	key := fmt.Sprintf("message:%d", messageID)
+	value := map[string]interface{}{
+		"message_id": messageResponseID,
+		"sent_at":    sentAt.Format(time.RFC3339),
+	}
+
+	jsonValue, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("failed to marshal cache value: %v", err)
+	}
+
+	if err := s.redis.Set(ctx, key, jsonValue, 24*time.Hour).Err(); err != nil {
+		return fmt.Errorf("failed to set cache: %v", err)
+	}
+
+	return nil
 }
