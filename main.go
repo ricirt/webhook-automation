@@ -41,7 +41,7 @@ func main() {
 	messageRepo := repository.NewMessageRepository(db)
 
 	// Initialize services
-	messageService := service.NewMessageService(messageRepo)
+	messageService := service.NewMessageService(messageRepo, cfg)
 
 	// Initialize handlers
 	messageHandler := handler.NewMessageHandler(messageService)
@@ -54,8 +54,9 @@ func main() {
 	{
 		messages := api.Group("/messages")
 		{
+			messages.POST("/start", messageHandler.StartSending)
+			messages.POST("/stop", messageHandler.StopSending)
 			messages.GET("/sent", messageHandler.GetSentMessages)
-			messages.GET("", messageHandler.GetAllMessages)
 		}
 	}
 

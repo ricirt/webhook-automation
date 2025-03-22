@@ -15,6 +15,11 @@ type Message struct {
 	MessageID   string    `gorm:"type:varchar(100);default:null" json:"message_id,omitempty"`
 }
 
+type MessageRequest struct {
+	Content     string `json:"content" binding:"required,max=160"`
+	PhoneNumber string `json:"phone_number" binding:"required"`
+}
+
 type MessageResponse struct {
 	ID          uint      `json:"id"`
 	Content     string    `json:"content"`
