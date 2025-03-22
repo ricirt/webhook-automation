@@ -5,7 +5,7 @@ import (
 )
 
 type Message struct {
-	ID          uint      `gorm:"primarykey" json:"id"`
+	ID          uint      `gorm:"primarykey" json:"messageId"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	Content     string    `gorm:"type:text;not null" json:"content"`
@@ -21,7 +21,7 @@ type MessageRequest struct {
 }
 
 type MessageResponse struct {
-	ID          uint      `json:"id"`
+	ID          uint      `json:"messageId"`
 	Content     string    `json:"content"`
 	PhoneNumber string    `json:"phone_number"`
 	IsSent      bool      `json:"is_sent"`

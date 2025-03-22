@@ -11,7 +11,7 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=insider_messages
-      - WEBHOOK_URL=https://webhook.site/051715ec-86d3-4526-b22e-07bef7da0956
+      - WEBHOOK_URL=https://webhook.site/6039af30-b105-47eb-8e7d-883e361e5504
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
@@ -28,6 +28,8 @@ services:
       - POSTGRES_DB=insider_messages
     ports:
       - "5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -41,8 +43,8 @@ services:
     image: redis:7
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
+    tmpfs:
+      - /data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

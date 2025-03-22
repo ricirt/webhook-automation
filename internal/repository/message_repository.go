@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"fmt"
+
 	"github.com/ricirt/webhook-automation/internal/model"
 	"gorm.io/gorm"
 )
@@ -20,12 +22,24 @@ func (r *MessageRepository) GetUnsentMessages(limit int) ([]model.Message, error
 }
 
 func (r *MessageRepository) UpdateMessage(message *model.Message) error {
-	result := r.db.Model(message).Updates(map[string]interface{}{
-		"is_sent":    true,
-		"sent_at":    message.SentAt,
-		"message_id": message.MessageID,
-	})
-	return result.Error
+	result := r.db.Model(&model.Message{}).
+		Where("id = ?", message.ID).
+		Updates(map[string]interface{}{
+			"is_sent":    message.IsSent,
+			"sent_at":    message.SentAt,
+			"message_id": message.MessageID,
+			"updated_at": message.UpdatedAt,
+		})
+
+	if result.Error != nil {
+		return fmt.Errorf("mesaj güncellenemedi: %v", result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("mesaj bulunamadı veya güncelleme yapılamadı, ID: %d", message.ID)
+	}
+
+	return nil
 }
 
 func (r *MessageRepository) GetSentMessages() ([]model.Message, error) {

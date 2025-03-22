@@ -41,38 +41,43 @@ func NewMessageService(repo *repository.MessageRepository, config *config.Config
 
 func (s *MessageService) StartSending() error {
 	if s.isRunning {
-		return fmt.Errorf("message sending is already running")
+		return fmt.Errorf("mesaj gönderme servisi zaten çalışıyor")
 	}
 
 	s.isRunning = true
+	s.stopChannel = make(chan struct{}) // Yeni kanal oluştur
 	go s.sendMessagesLoop()
+	fmt.Println("Mesaj gönderme servisi başlatıldı")
 	return nil
 }
 
 func (s *MessageService) StopSending() error {
 	if !s.isRunning {
-		return fmt.Errorf("message sending is not running")
+		return fmt.Errorf("mesaj gönderme servisi zaten durdurulmuş")
 	}
 
-	close(s.stopChannel)
 	s.isRunning = false
+	close(s.stopChannel)
+	fmt.Println("Mesaj gönderme servisi durdurma sinyali gönderildi")
 	return nil
 }
 
 func (s *MessageService) sendMessagesLoop() {
-
-	if err := s.sendMessages(); err != nil {
-		fmt.Printf("İlk mesaj gönderiminde hata: %v\n", err)
-	}
-
 	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
+
+	if err := s.sendMessages(); err != nil {
+		fmt.Printf("Mesaj gönderiminde hata: %v\n", err)
+	}
 
 	for {
 		select {
 		case <-s.stopChannel:
 			return
 		case <-ticker.C:
+			if !s.isRunning {
+				return
+			}
 			if err := s.sendMessages(); err != nil {
 				fmt.Printf("Mesaj gönderiminde hata: %v\n", err)
 			}
@@ -83,33 +88,26 @@ func (s *MessageService) sendMessagesLoop() {
 func (s *MessageService) sendMessages() error {
 	messages, err := s.repo.GetUnsentMessages(2)
 	if err != nil {
-		return fmt.Errorf("failed to get unsent messages: %v", err)
+		return fmt.Errorf("gönderilmemiş mesajlar alınamadı: %v", err)
 	}
 
 	if len(messages) == 0 {
-		fmt.Println("Gönderilecek yeni mesaj bulunamadı")
 		return nil
 	}
 
-	fmt.Printf("İşlenecek mesaj sayısı: %d\n", len(messages))
+	for i := 0; i < len(messages); i++ {
+		message := &messages[i]
+		fmt.Printf("Mesaj işleniyor - ID: %d\n", message.ID)
 
-	for i := 0; i < len(messages) && i < 2; i++ {
-		message := messages[i]
-
-		if err := s.sendMessage(&message); err != nil {
+		if err := s.sendMessage(message); err != nil {
+			fmt.Printf("Mesaj gönderilemedi - ID: %d, Hata: %v\n", message.ID, err)
 			continue
 		}
 
-		message.IsSent = true
-		message.SentAt = time.Now()
-
-		if err := s.repo.UpdateMessage(&message); err != nil {
+		if err := s.repo.UpdateMessage(message); err != nil {
+			fmt.Printf("Veritabanı güncellenemedi - ID: %d, Hata: %v\n", message.ID, err)
 			continue
 		}
-
-		if err := s.cacheMessageDetails(message.ID, message.MessageID, message.SentAt); err != nil {
-		}
-
 	}
 
 	return nil
@@ -117,45 +115,56 @@ func (s *MessageService) sendMessages() error {
 
 func (s *MessageService) sendMessage(message *model.Message) error {
 	payload := map[string]string{
-		"to":      message.PhoneNumber,
-		"content": message.Content,
+		"phoneNumber": message.PhoneNumber,
+		"content":     message.Content,
 	}
 
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %v", err)
+		return fmt.Errorf("payload oluşturulamadı: %v", err)
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
 	}
 
 	req, err := http.NewRequest("POST", s.config.WebhookURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return fmt.Errorf("failed to create request: %v", err)
+		return fmt.Errorf("istek oluşturulamadı: %v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %v", err)
+		return fmt.Errorf("istek gönderilemedi: %v", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %v", err)
+		return fmt.Errorf("yanıt okunamadı: %v", err)
 	}
 
 	var webhookResp WebhookResponse
 	if err := json.Unmarshal(body, &webhookResp); err != nil {
-		message.MessageID = fmt.Sprintf("msg_%d_%d", message.ID, time.Now().Unix())
-		return nil
+		return fmt.Errorf("webhook yanıtı ayrıştırılamadı: %v", err)
 	}
 
+	if webhookResp.MessageID == "" {
+		return fmt.Errorf("messageId boş")
+	}
+
+	now := time.Now()
 	message.MessageID = webhookResp.MessageID
+	message.IsSent = true
+	message.SentAt = now
+	message.UpdatedAt = now
+
+	if err := s.cacheMessageDetails(message.ID, webhookResp.MessageID, now); err != nil {
+		fmt.Printf("Redis'e kaydedilemedi - ID: %d, Hata: %v\n", message.ID, err)
+	}
+
 	return nil
 }
 
@@ -173,11 +182,11 @@ func (s *MessageService) cacheMessageDetails(messageID uint, messageResponseID s
 
 	jsonValue, err := json.Marshal(value)
 	if err != nil {
-		return fmt.Errorf("failed to marshal cache value: %v", err)
+		return fmt.Errorf("cache değeri oluşturulamadı: %v", err)
 	}
 
 	if err := s.redis.Set(ctx, key, jsonValue, 24*time.Hour).Err(); err != nil {
-		return fmt.Errorf("failed to set cache: %v", err)
+		return fmt.Errorf("redis'e kaydedilemedi: %v", err)
 	}
 
 	return nil
