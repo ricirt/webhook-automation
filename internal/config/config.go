@@ -26,7 +26,7 @@ func LoadConfig() (*Config, error) {
 		DBName:     getEnvOrDefault("DB_NAME", "insider_messages"),
 		RedisHost:  getEnvOrDefault("REDIS_HOST", "localhost"),
 		RedisPort:  getEnvOrDefault("REDIS_PORT", "6379"),
-		WebhookURL: getEnvOrDefault("WEBHOOK_URL", "https://webhook.site/6039af30-b105-47eb-8e7d-883e361e5504"),
+		WebhookURL: getEnvOrDefault("WEBHOOK_URL", "https://webhook.site/4791977b-aebb-4423-b02e-a1058bf442eb"),
 	}
 
 	if err := config.validate(); err != nil {

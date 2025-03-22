@@ -11,7 +11,7 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=insider_messages
-      - WEBHOOK_URL=https://webhook.site/6039af30-b105-47eb-8e7d-883e361e5504
+      - WEBHOOK_URL=https://webhook.site/4791977b-aebb-4423-b02e-a1058bf442eb
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
