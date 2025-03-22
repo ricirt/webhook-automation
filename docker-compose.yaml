@@ -11,6 +11,7 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=insider_messages
+      - WEBHOOK_URL=https://webhook.site/9e144b64-cc86-48de-a843-3e30ebfd4ee0
     depends_on:
       postgres:
         condition: service_healthy

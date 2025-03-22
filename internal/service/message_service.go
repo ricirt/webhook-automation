@@ -59,7 +59,7 @@ func (s *MessageService) sendMessagesLoop() {
 		fmt.Printf("Error in initial message sending: %v\n", err)
 	}
 
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
 
 	for {
