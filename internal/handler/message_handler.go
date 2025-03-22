@@ -24,7 +24,7 @@ func NewMessageHandler(service *service.MessageService) *MessageHandler {
 // @Produce json
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
-// @Router /api/v1/messages/start [post]
+// @Router /messages/start [post]
 func (h *MessageHandler) StartSending(c *gin.Context) {
 	if err := h.service.StartSending(); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -40,13 +40,13 @@ func (h *MessageHandler) StartSending(c *gin.Context) {
 // @Produce json
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
-// @Router /api/v1/messages/stop [post]
+// @Router /messages/stop [post]
 func (h *MessageHandler) StopSending(c *gin.Context) {
 	if err := h.service.StopSending(); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Message sending stopped"}) 
+	c.JSON(http.StatusOK, gin.H{"message": "Message sending stopped"})
 }
 
 // @Summary Get sent messages
@@ -56,7 +56,7 @@ func (h *MessageHandler) StopSending(c *gin.Context) {
 // @Produce json
 // @Success 200 {array} model.MessageResponse
 // @Failure 500 {object} map[string]string
-// @Router /api/v1/messages/sent [get]
+// @Router /messages/sent [get]
 func (h *MessageHandler) GetSentMessages(c *gin.Context) {
 	messages, err := h.service.GetSentMessages()
 	if err != nil {

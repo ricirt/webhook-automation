@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	_ "github.com/ricirt/webhook-automation/docs"
 	"github.com/ricirt/webhook-automation/internal/config"
 	"github.com/ricirt/webhook-automation/internal/handler"
 	"github.com/ricirt/webhook-automation/internal/repository"
@@ -16,11 +17,27 @@ import (
 	"gorm.io/gorm"
 )
 
-// @title Insider Message Sending API
-// @version 1.0
-// @description API for automatic message sending system
-// @host localhost:8080
-// @BasePath /api/v1
+// @title           Insider Message Sending API
+// @version         1.0
+// @description     API for automatic message sending system
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    http://www.swagger.io/support
+// @contact.email  support@swagger.io
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
+// @schemes   http https
 
 func main() {
 	// Load configuration
